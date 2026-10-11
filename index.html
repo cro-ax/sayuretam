@@ -257,16 +257,15 @@ function contoh(){
   const s=blank(); s.contoh=true;
   s.usaha={nama:'Sayur Etam',hp:'',alamat:'Balikpapan'};
   const B=(nama,satuan,jenis)=>{const o={id:uid(),nama,satuan,jenis};s.barang.push(o);return o};
-  const cabai=B('Cabai rawit','kg','hasil'), tomat=B('Tomat','kg','hasil'), kangkung=B('Kangkung','ikat','hasil'), jagung=B('Jagung','karung','hasil'),
-        urea=B('Pupuk urea','sak','sarana'), bibit=B('Bibit cabai','polybag','sarana');
+  const cabai=B('Cabai rawit','kg','hasil'), tomat=B('Tomat','kg','hasil'), kangkung=B('Kangkung','ikat','hasil'), jagung=B('Jagung','karung','hasil');
   const P=(nama,hp,alamat)=>{const o={id:uid(),nama,hp,alamat};s.petani.push(o);return o};
   const darto=P('Pak Darto (contoh)','081300000001','Km 15'), sumi=P('Bu Sumi (contoh)','081300000002','Karang Joang'), hasan=P('Pak Hasan (contoh)','','Teritip');
   const Q=(nama,hp,alamat)=>{const o={id:uid(),nama,hp,alamat};s.pasar.push(o);return o};
   const aling=Q('Lapak Ko Aling (contoh)','081400000001','Pasar Pandansari'), yati=Q('Bu Yati (contoh)','081400000002','Pasar Klandasan');
   const t0=today(), t1=addDays(t0,-1);
   const H=(tgl,b,beli,jual)=>{(s.harga[tgl]=s.harga[tgl]||{})[b.id]={beli,jual,khusus:{}}};
-  H(t1,cabai,42000,50000);H(t1,tomat,6000,8500);H(t1,kangkung,1500,2500);H(t1,jagung,95000,120000);H(t1,urea,0,135000);H(t1,bibit,0,1500);
-  H(t0,cabai,0,53000);H(t0,tomat,0,8500);H(t0,kangkung,0,2500);H(t0,jagung,0,120000);H(t0,urea,0,135000);H(t0,bibit,0,1500);
+  H(t1,cabai,42000,50000);H(t1,tomat,6000,8500);H(t1,kangkung,1500,2500);H(t1,jagung,95000,120000);
+  H(t0,cabai,0,53000);H(t0,tomat,0,8500);H(t0,kangkung,0,2500);H(t0,jagung,0,120000);
   let tick=0;
   const T=(tgl,jenis,pihak,items,bayar,uang,catatan)=>{
     const total=(items||[]).reduce((a,i)=>a+i.qty*i.harga,0)+(uang||0);
@@ -274,7 +273,7 @@ function contoh(){
     if(!JENIS[jenis].items){tx.total=bayar;tx.bayar=bayar;}
     tx.no=noBaru(s,tx); s.tx.push(tx);
   };
-  T(t1,'kasbon',darto,[{b:urea,qty:2,harga:135000},{b:bibit,qty:200,harga:1500}],0,500000,'Kasbon awal tanam');
+  T(t1,'kasbon',darto,[],0,1070000,'Pupuk urea 2 sak, bibit cabai 200, uang 500rb');
   T(t1,'beli',darto,[{b:cabai,qty:18.5,harga:42000}],300000,0);
   T(t1,'beli',sumi,[{b:tomat,qty:60,harga:6000},{b:kangkung,qty:120,harga:1500}],540000,0);
   T(t1,'jual',aling,[{b:cabai,qty:18,harga:50000},{b:tomat,qty:55,harga:8500}],900000,0);
@@ -290,7 +289,7 @@ function noBaru(s,tx){
   let n=1; s.tx.forEach(t=>{if(t.no&&t.no.startsWith(pre)){const k=parseInt(t.no.slice(pre.length),10);if(k>=n)n=k+1}});
   return pre+pad(n);
 }
-function fixMeta(){S.meta=Object.assign({autoFile:true,lastFile:0,snap:''},S.meta||{})}
+function fixMeta(){(S.barang||[]).forEach(b=>{b.jenis='hasil'});S.meta=Object.assign({autoFile:true,lastFile:0,snap:''},S.meta||{})}
 function load(){
   try{const r=localStorage.getItem(KEY); if(r){S=Object.assign(blank(),JSON.parse(r)); fixMeta(); bump(); return;}}catch(e){memOnly=true}
   S=contoh(); fixMeta(); bump();
@@ -448,7 +447,7 @@ function notaText(t){
   }
   if(J.items){
     (t.items||[]).forEach(i=>{s+=i.nama+'\n  '+qf(i.qty)+' '+i.satuan+' x '+rp(i.harga)+'\n  = '+rp(i.qty*i.harga)+'\n'});
-    if(t.uang)s+=(t.jenis==='kasbon'?'Pinjaman uang tunai':'Hutang lama / sisa')+'\n  = '+rp(t.uang)+'\n';
+    if(t.uang)s+=(t.jenis==='kasbon'?'Kasbon'+(t.catatan?': '+t.catatan:''):'Hutang lama / sisa')+'\n  = '+rp(t.uang)+'\n';
     s+=GARIS+'\n*TOTAL  : '+rp(t.total)+'*\n';
     const bl=t.jenis==='beli'?'Dibayar':'Dibayar';
     s+=bl+' : '+rp(t.bayar)+'\n';
@@ -701,10 +700,12 @@ V.form=()=>{
   }
   const quickHtml=quick.length?`<div class="chips">${quick.map(q=>`<button type="button" class="chip" data-act="pickPihak" data-id="${q.id}" aria-pressed="${q.id===F.pihakId}">${esc(q.label.replace(/\s*\(.*?\)/,''))}${q.amt?` <span class="chipamt">${rpk(q.amt)}</span>`:''}</button>`).join('')}</div>`:'';
   let body='';
-  if(mode==='keluar'&&!F.id) body+=`<div class="seg two"><button type="button" data-act="segJenis" data-v="bayar_petani" aria-pressed="${F.jenis==='bayar_petani'}">Bayar hutang<small>barang yang belum dibayar</small></button><button type="button" data-act="segJenis" data-v="kasbon" aria-pressed="${F.jenis==='kasbon'}">Kasbon<small>pinjam uang / barang</small></button></div>`;
-  if(F.jenis==='kasbon') body+=`<label class="f"><span class="lbl">Pinjaman uang</span><input class="n" id="f-uang" inputmode="decimal" data-f="uang" value="${esc(F.uangS)}" placeholder="0"></label><div class="lbl" style="margin-top:4px">Barang yang dihutangkan (opsional)</div>`;
-  if(J.items){
-    const brg=S.barang.slice().sort((a,b)=>(F.jenis==='kasbon'?(a.jenis==='sarana'?-1:1)-(b.jenis==='sarana'?-1:1):0)||a.nama.localeCompare(b.nama)).filter(b=>F.jenis==='kasbon'||b.jenis==='hasil');
+  if(mode==='keluar'&&!F.id) body+=`<div class="seg two"><button type="button" data-act="segJenis" data-v="bayar_petani" aria-pressed="${F.jenis==='bayar_petani'}">Bayar hutang<small>barang yang belum dibayar</small></button><button type="button" data-act="segJenis" data-v="kasbon" aria-pressed="${F.jenis==='kasbon'}">Kasbon<small>uang atau barang, dicatat nilainya</small></button></div>`;
+  if(F.jenis==='kasbon') body+=`<label class="f"><span class="lbl">Nilai kasbon (Rp)</span><div class="row"><input class="n" id="f-uang" inputmode="decimal" data-f="uang" value="${esc(F.uangS)}" placeholder="0"></div></label>
+    <label class="f"><span class="lbl">Keterangan</span><input id="f-cat" data-f="catatan" value="${esc(F.catatan)}" placeholder="contoh: uang tunai, pupuk urea 2 sak, bibit"></label>
+    <span class="small muted">Kasbon uang maupun barang dicatat nilai rupiahnya saja. Tulis barangnya di keterangan.</span>`;
+  else if(J.items){
+    const brg=S.barang.slice().sort((a,b)=>a.nama.localeCompare(b.nama));
     body+=`<div class="stack" id="lines">${F.items.map((it,i)=>{const b=byId(S.barang,it.bid);return `<div class="line">
       ${F.items.length>1?`<button type="button" class="btn sm x" data-act="delLine" data-i="${i}" aria-label="Hapus baris">✕</button>`:''}
       <label class="f full"><span class="lbl">Barang</span><select id="ln-b-${i}" data-f="ln-b" data-i="${i}"><option value="">— pilih —</option>${brg.map(x=>`<option value="${x.id}" ${x.id===it.bid?'selected':''}>${esc(x.nama)} (${esc(x.satuan)})</option>`).join('')}<option value="__new">+ Barang baru…</option></select></label>
@@ -717,7 +718,7 @@ V.form=()=>{
   } else {
     body+=`<label class="f"><span class="lbl">${mode==='masuk'?'Jumlah diterima':'Jumlah dibayar'}</span><div class="row"><input class="n" id="f-total" inputmode="decimal" data-f="total" value="${esc(F.totalS)}" placeholder="0"><button type="button" class="btn sm" data-act="isiSisa">Isi semua</button></div></label>`;
   }
-  body+=`<label class="f"><span class="lbl">Catatan</span><input id="f-cat" data-f="catatan" value="${esc(F.catatan)}" placeholder="opsional"></label>`;
+  if(F.jenis!=='kasbon') body+=`<label class="f"><span class="lbl">Catatan</span><input id="f-cat" data-f="catatan" value="${esc(F.catatan)}" placeholder="opsional"></label>`;
   const judul=F.id?'Ubah transaksi':mode==='masuk'?'Uang masuk':mode==='keluar'?'Uang keluar':J.label;
   return topbar(judul,(F.id||mode)?J.label:'')+
   (F.voice?`<div class="vbanner"><div class="row between"><b>Dari suara</b><button type="button" class="btn sm" data-act="voice">Ulangi</button></div><span class="small">“${esc(F.voice.text)}”</span>${F.voice.warn.length?`<span class="small c-debt">${F.voice.warn.map(esc).join(' · ')}</span>`:'<span class="small">Cek isiannya, lalu simpan.</span>'}</div>`:'')+
@@ -744,7 +745,7 @@ function paintSum(){
   F.items&&F.items.forEach((it,i)=>{const e=document.getElementById('ln-s-'+i); if(e)e.textContent=F.jenis==='beli'&&!parseNum(it.hargaS)?'harga menyusul':rp(parseNum(it.qtyS)*parseNum(it.hargaS))});
   const pend=F.jenis==='beli'&&F.items.some(it=>it.bid&&!parseNum(it.hargaS));
   const c=formCalc();
-  box.innerHTML=pend?`<div class="r"><b>Harga diberikan besok</b></div><div class="small">Barang dicatat dulu. Setelah tahu harga di pasar, beri harga lewat menu <b>3. Beri harga petani</b>.</div>${c.bayar?`<div class="r small"><span>Uang muka</span><b>${rp(c.bayar)}</b></div>`:''}`:(c.J.items?`<div class="r big"><span>Total</span><b>${rp(c.total)}</b></div><div class="r"><span>Dibayar sekarang</span><b>${rp(c.bayar)}</b></div><div class="r"><span>${F.jenis==='beli'?'Belum dibayar':'Masuk hutang'}</span><b>${rp(c.total-c.bayar)}</b></div>`:`<div class="r big"><span>Jumlah</span><b>${rp(c.total)}</b></div>`)+
+  box.innerHTML=F.jenis==='kasbon'?`<div class="r big"><span>Nilai kasbon</span><b>${rp(c.total)}</b></div>`+(F.pihakId?`<div class="r small"><span class="muted">Saldo sebelum</span><span>${esc(saldoTeks(c.kind,c.before,true))}</span></div><div class="r small"><span class="muted">Saldo sesudah</span><b>${esc(saldoTeks(c.kind,c.after,true))}</b></div>`:''):pend?`<div class="r"><b>Harga diberikan besok</b></div><div class="small">Barang dicatat dulu. Setelah tahu harga di pasar, beri harga lewat menu <b>3. Beri harga petani</b>.</div>${c.bayar?`<div class="r small"><span>Uang muka</span><b>${rp(c.bayar)}</b></div>`:''}`:(c.J.items?`<div class="r big"><span>Total</span><b>${rp(c.total)}</b></div><div class="r"><span>Dibayar sekarang</span><b>${rp(c.bayar)}</b></div><div class="r"><span>${F.jenis==='beli'?'Belum dibayar':'Masuk hutang'}</span><b>${rp(c.total-c.bayar)}</b></div>`:`<div class="r big"><span>Jumlah</span><b>${rp(c.total)}</b></div>`)+
    (F.pihakId?`<div class="r small"><span class="muted">Saldo sebelum</span><span>${esc(saldoTeks(c.kind,c.before,true))}</span></div><div class="r small"><span class="muted">Saldo sesudah</span><b>${esc(saldoTeks(c.kind,c.after,true))}</b></div>`:'');
 }
 function hpData(d){
@@ -828,7 +829,7 @@ function notaHarga(pid,d){
   return s;
 }
 V.lain=()=>`${topbar('Lainnya')}<div class="list">
-  ${[['ringkasan','Ringkasan','Untung, hutang-piutang, stok gudang'],['hargaPetani','Beri harga petani','Langkah 3: harga untuk barang yang sudah diambil, lihat untung'],['harga','Harga patokan harian','Harga jual ke pasar dan patokan harga petani per hari'],['barang','Barang & satuan','Hasil panen dan barang yang dihutangkan'],['rekap','Rekap & laporan','Harian, per petani, per pasar, daftar hutang'],['usaha','Data usaha','Nama, alamat, nomor di kepala nota'],['backup','Cadangan data','Simpan & pulihkan data, pindah HP']].map(([v,t,d])=>`<button class="item" data-act="go" data-v="${v}"><div class="grow"><div class="t">${t}</div><div class="small muted">${d}</div></div><span class="muted">›</span></button>`).join('')}
+  ${[['ringkasan','Ringkasan','Untung, hutang-piutang, stok gudang'],['hargaPetani','Beri harga petani','Langkah 3: harga untuk barang yang sudah diambil, lihat untung'],['harga','Harga patokan harian','Harga jual ke pasar dan patokan harga petani per hari'],['barang','Barang & satuan','Daftar barang dagangan dan satuannya'],['rekap','Rekap & laporan','Harian, per petani, per pasar, daftar hutang'],['usaha','Data usaha','Nama, alamat, nomor di kepala nota'],['backup','Cadangan data','Simpan & pulihkan data, pindah HP']].map(([v,t,d])=>`<button class="item" data-act="go" data-v="${v}"><div class="grow"><div class="t">${t}</div><div class="small muted">${d}</div></div><span class="muted">›</span></button>`).join('')}
   </div><p class="small muted">Semua data tersimpan di HP ini saja. Rutin buat cadangan supaya aman kalau HP rusak atau ganti HP.</p>`;
 V.harga=()=>{
   const d=ui.hargaDate, h=S.harga[d]||{};
@@ -846,17 +847,15 @@ V.harga=()=>{
   </div>`;
 };
 V.barang=()=>{
-  const grp=k=>S.barang.filter(b=>b.jenis===k).sort((a,b)=>a.nama.localeCompare(b.nama)).map(b=>`<button class="item" data-act="go" data-v="barangForm" data-id="${b.id}"><div class="grow t">${esc(b.nama)}</div><span class="pill">${esc(b.satuan)}</span></button>`).join('')||'<div class="empty small">Belum ada.</div>';
+  const list=S.barang.slice().sort((a,b)=>a.nama.localeCompare(b.nama)).map(b=>`<button class="item" data-act="go" data-v="barangForm" data-id="${b.id}"><div class="grow t">${esc(b.nama)}</div><span class="pill">${esc(b.satuan)}</span></button>`).join('')||'<div class="empty small">Belum ada barang. Ketuk + untuk menambah.</div>';
   return topbar('Barang','','<button class="iconbtn" data-act="go" data-v="barangForm" aria-label="Tambah barang">+</button>')+
-  `<div class="stack"><h3>Hasil panen <span class="muted small">(dibeli dari petani, dijual ke pasar)</span></h3><div class="list">${grp('hasil')}</div>
-  <h3>Barang untuk dihutangkan <span class="muted small">(pupuk, bibit, obat)</span></h3><div class="list">${grp('sarana')}</div></div>`;
+  `<div class="stack"><span class="small muted">Barang dagangan: dibeli dari petani / tengkulak, dijual ke pedagang. Kasbon ke petani tidak perlu didaftarkan di sini.</span><div class="list">${list}</div></div>`;
 };
 V.barangForm=()=>{
   const b=view.id?byId(S.barang,view.id):null, used=b&&S.tx.some(t=>(t.items||[]).some(i=>i.bid===b.id));
   return topbar(b?'Ubah barang':'Barang baru')+`<form class="stack" id="barangForm">
   <label class="f"><span class="lbl">Nama barang</span><input id="bf-nama" required value="${esc(b?b.nama:'')}" placeholder="Cabai rawit"></label>
   <label class="f"><span class="lbl">Satuan</span><input id="bf-sat" list="satuanList" required value="${esc(b?b.satuan:'kg')}"><datalist id="satuanList">${SATUAN.map(s=>`<option value="${s}">`).join('')}</datalist></label>
-  <label class="f"><span class="lbl">Jenis</span><select id="bf-jenis"><option value="hasil" ${!b||b.jenis==='hasil'?'selected':''}>Hasil panen (beli dari petani, jual ke pasar)</option><option value="sarana" ${b&&b.jenis==='sarana'?'selected':''}>Barang dihutangkan ke petani (pupuk, bibit, dll)</option></select></label>
   <div class="err" id="bf-err"></div><button class="btn pri block" type="submit">Simpan</button>
   ${b?(used?'<span class="small muted">Tidak bisa dihapus karena sudah dipakai di transaksi. Nama di nota lama tetap seperti semula.</span>':'<div id="delbox"><button class="btn danger block" type="button" data-act="askDel" data-what="barang">Hapus barang</button></div>'):''}</form>`;
 };
@@ -961,14 +960,14 @@ function notaData(t){
   const d={judul:pend?'TANDA TERIMA BARANG':J.judul,meta:[['No. nota',t.no],['Tanggal',tglPanjang(t.tgl)],[tipeLabel(p,kind),namaPihak(t)]],lines:[],totals:[],notes:[],saldo:null,pesan:''};
   if(J.items){
     (t.items||[]).forEach(i=>d.lines.push({nama:i.nama,detail:qf(i.qty)+' '+i.satuan+(i.harga?'  ×  '+rp(i.harga):'  ·  harga menyusul'),amt:i.harga?rp(i.qty*i.harga):''}));
-    if(t.uang)d.lines.push({nama:t.jenis==='kasbon'?'Pinjaman uang tunai':'Hutang lama / sisa',detail:'',amt:rp(t.uang)});
+    if(t.uang)d.lines.push({nama:t.jenis==='kasbon'?'Kasbon':'Hutang lama / sisa',detail:t.jenis==='kasbon'?(t.catatan||''):'',amt:rp(t.uang)});
     if(pend){ if(t.bayar)d.totals.push(['Uang muka',rp(t.bayar),false]); d.pesan='Harga diberikan besok setelah barang laku di pasar.'; }
     else{ const sisa=t.total-(t.bayar||0); d.totals.push(['Total',rp(t.total),true]);
       if(t.jenis!=='kasbon'||t.bayar)d.totals.push(['Dibayar',rp(t.bayar||0),false]);
       if(Math.abs(sisa)>=1)d.totals.push([t.jenis==='beli'?'Belum dibayar':'Masuk hutang',rp(sisa),false,true]); }
   } else { d.lines.push({nama:J.label,detail:'',amt:rp(t.total)}); d.totals.push(['Jumlah',rp(t.total),true]); }
   if(t.riwayat&&t.riwayat.length)d.notes.push('Timbang ulang: '+t.riwayat.map(r=>r.txt).join(', '));
-  if(t.catatan)d.notes.push('Catatan: '+t.catatan);
+  if(t.catatan&&!(t.jenis==='kasbon'&&t.uang))d.notes.push('Catatan: '+t.catatan);
   if(!pend)d.saldo=[['Saldo sebelumnya',saldoTeks(kind,before,false),false],['Saldo sekarang',saldoTeks(kind,after,false),true]];
   return d;
 }
@@ -1034,12 +1033,15 @@ function autoMasuk(){ if(F&&MODE[F.jenis]==='masuk'&&F.pihakId) F.jenis=byId(S.p
 function newForm(jenis,pid){
   F={jenis,id:null,tgl:today(),pihakId:pid||'',items:[{bid:'',qtyS:'',hargaS:''}],uangS:'',bayarS:'',totalS:'',catatan:''};
   if(!JENIS[jenis].items)F.items=null;
+  if(jenis==='kasbon')F.items=[];
   autoMasuk();
   go({name:'form'});
 }
 function editForm(t){
   F={jenis:t.jenis,id:t.id,tgl:t.tgl,pihakId:t.pihakId,items:JENIS[t.jenis].items?(t.items||[]).map(i=>({bid:i.bid,qtyS:qf(i.qty),hargaS:nf0.format(i.harga),touched:true})):null,uangS:t.uang?nf0.format(t.uang):'',bayarS:t.bayar?nf0.format(t.bayar):'',totalS:JENIS[t.jenis].items?'':nf0.format(t.total),catatan:t.catatan||''};
-  if(F.items&&!F.items.length)F.items=[{bid:'',qtyS:'',hargaS:''}];
+  if(t.jenis==='kasbon'&&(t.items||[]).length){F.uangS=nf0.format(t.total);F.catatan=[(t.items||[]).map(i=>i.nama+' '+qf(i.qty)+' '+i.satuan).join(', '),t.catatan].filter(Boolean).join(', ');}
+  if(t.jenis==='kasbon')F.items=[];
+  else if(F.items&&!F.items.length)F.items=[{bid:'',qtyS:'',hargaS:''}];
   closeSheet(); go({name:'form'});
 }
 function refillPrices(){ if(!F.items||F.jenis==='beli')return; F.items.forEach(it=>{ if(it.bid&&F.pihakId&&!it.touched){const h=hargaUntuk(F.jenis,it.bid,F.pihakId,F.tgl); it.hargaS=h?nf0.format(h):''} }) }
@@ -1053,7 +1055,7 @@ function saveTx(){
     for(const it of F.items){ const q=parseNum(it.qtyS), h=parseNum(it.hargaS);
       if(!it.bid&&!q)continue; if(!it.bid)return err('Ada baris tanpa barang.'); if(q<=0)return err('Isi jumlah barang.');
       const b=byId(S.barang,it.bid); items.push({bid:b.id,nama:b.nama,satuan:b.satuan,qty:q,harga:h}); }
-    if(!items.length&&!parseNum(F.uangS))return err('Isi minimal satu barang'+(J.uang?' atau pinjaman uang.':'.'));
+    if(!items.length&&!parseNum(F.uangS))return err(F.jenis==='kasbon'?'Isi nilai kasbon.':'Isi minimal satu barang.');
     if(c.bayar<0)return err('Jumlah bayar tidak boleh minus.');
     if(c.bayar>c.total&&!items.some(i=>!i.harga))return err('Jumlah bayar lebih besar dari total. Sisa lebihnya catat sebagai pembayaran terpisah.');
   } else if(c.total<=0)return err('Isi jumlah uang.');
@@ -1125,7 +1127,7 @@ function vFindName(toks,list,used){ // list: [{id,words}]
   return best;
 }
 function parseUcapan(text){
-  const toks=vTokens(text), used=new Set(), warn=[];
+  const toks=vTokens(text), used=new Set(); let warn=[];
   const has=re=>re.test(' '+toks.map(t=>t.w!=null?t.w:'#').join(' ')+' ');
   let jenis=null;
   if(has(/\s(jual|dijual|jualan|kirim|ngirim)\s/))jenis='jual';
@@ -1175,7 +1177,7 @@ function parseUcapan(text){
   }
   let total=0;
   if(jenis&&!JENIS[jenis].items){ total=bayar!=null?bayar:(rest[0]?rest[0].t.n:0); bayar=null; }
-  else if(jenis==='kasbon'&&!items.length&&rest[0]){uang=rest[0].t.n}
+  else if(jenis==='kasbon'){ const all=toks.filter((t,i)=>t.n!=null&&!(who&&who.idx.includes(i))); uang=(rest[0]?rest[0].t.n:0)||(all.length?all[all.length-1].n:0); items.length=0; warn=warn.filter(w=>!w.startsWith('Jumlah')&&!w.startsWith('Barang')); }
   if(!who)warn.push('Nama '+(kind==='pasar'?'pembeli':kind==='petani'?'pemasok':'orang')+' tidak dikenali');
   if(jenis&&JENIS[jenis].items&&!items.length&&!uang)warn.push('Barang tidak dikenali');
   return {jenis,pihakId:who?who.id:'',items,bayar,lunas,total,uang,warn,text};
@@ -1187,6 +1189,7 @@ function isiDariSuara(r){
   if(J.items){
     if(r.items.length)F.items=r.items.map(i=>({bid:i.bid,qtyS:i.qty?qf(i.qty):'',hargaS:i.harga?nf0.format(i.harga):'',touched:!!i.harga}));
     if(r.uang)F.uangS=nf0.format(r.uang);
+    if(r.jenis==='kasbon'){F.items=[];const m=r.text.replace(/^.*?kasbon\s*/i,'');F.catatan='';}
     refillPrices();
     if(r.lunas){F.bayarS=nf0.format(formCalc().total)} else if(r.bayar!=null&&r.bayar>0)F.bayarS=nf0.format(r.bayar);
   } else if(r.total)F.totalS=nf0.format(r.total);
@@ -1228,7 +1231,7 @@ const A={
   micToggle:()=>{const b=document.getElementById('micBtn'); if(b&&b.classList.contains('on')){try{rec&&rec.stop()}catch(e){}} else micStart()},
   voiceGo:()=>{const ta=document.getElementById('vText'); const t=ta&&ta.value.trim(); if(!t){toast('Belum ada kalimat');return} const r=parseUcapan(t); if(r.jenis){closeSheet(); isiDariSuara(r)} else {const st=document.getElementById('micState'); if(st)st.textContent='Belum paham. Awali dengan jual, beli, kasbon, atau nama orang + bayar.'}},
   pickPihak:d=>{F.pihakId=d.id;autoMasuk();refillPrices();render()},
-  segJenis:d=>{ if(F.jenis===d.v)return; if(d.v==='kasbon'){F.uangS=F.totalS||F.uangS;F.totalS='';F.items=[{bid:'',qtyS:'',hargaS:''}]} else {F.totalS=F.uangS||F.totalS;F.uangS='';F.items=null} F.jenis=d.v; render()},
+  segJenis:d=>{ if(F.jenis===d.v)return; if(d.v==='kasbon'){F.uangS=F.totalS||F.uangS;F.totalS='';F.items=[]} else {F.totalS=F.uangS||F.totalS;F.uangS='';F.items=null} F.jenis=d.v; render()},
   pickNew:()=>sheet(`<div class="row between"><h2>Catat apa?</h2><button class="iconbtn" data-act="closeSheet" aria-label="Tutup">✕</button></div><div class="list">${[['jual','Jual','ke pedagang / tengkulak','jual'],['beli','Beli','dari petani / tengkulak lain','beli'],['terima_pasar','Uang masuk','pembeli atau petani bayar','terima_pasar'],['bayar_petani','Uang keluar','bayar hutang ke petani / tengkulak, atau kasbon','bayar_petani']].map(([k,t,d,c])=>`<button class="item" data-act="newTx" data-j="${k}"><span class="av ${c}">${t[0]}</span><div class="grow"><div class="t">${t}</div><div class="small muted">${d}</div></div><span class="muted">›</span></button>`).join('')}<button class="item" data-act="startGo" data-v="hargaPetani"><span class="av kasbon">Rp</span><div class="grow"><div class="t">Beri harga petani</div><div class="small muted">untuk pembelian yang harganya menyusul</div></div><span class="muted">›</span></button><button class="item" data-act="voice"><span class="av beli">${ICON_MIC}</span><div class="grow"><div class="t">Bicara</div><div class="small muted">ucapkan transaksinya</div></div><span class="muted">›</span></button></div>`),
   pickBayar:()=>A.newTx({j:'terima_pasar'}),
   closeSheet:(d,e,el)=>{ if(el.classList.contains('sheet-bg')&&e.target!==el)return; closeSheet()},
@@ -1317,7 +1320,7 @@ document.addEventListener('change',e=>{
   else if(f==='hb'||f==='hj'){const d=(S.harga[ui.hargaDate]=S.harga[ui.hargaDate]||{}), x=(d[el.dataset.b]=d[el.dataset.b]||{beli:0,jual:0,khusus:{}}); x[f==='hb'?'beli':'jual']=Math.round(parseNum(el.value)); el.value=x[f==='hb'?'beli':'jual']?nf0.format(x[f==='hb'?'beli':'jual']):''; save()}
   else if(f==='tgl'){F.tgl=el.value;refillPrices();render()}
   else if(f==='pihak'){ if(el.value==='__new'){el.value=F.pihakId;go({name:'pihakForm',kind:JENIS[F.jenis].pihak,forForm:true});return} F.pihakId=el.value; autoMasuk(); refillPrices(); render()}
-  else if(f==='ln-b'){const i=+el.dataset.i; if(el.value==='__new'){el.value=F.items[i].bid;go({name:'barangForm',forForm:true,line:i,jenis:F.jenis==='kasbon'?'sarana':'hasil'});return}
+  else if(f==='ln-b'){const i=+el.dataset.i; if(el.value==='__new'){el.value=F.items[i].bid;go({name:'barangForm',forForm:true,line:i});return}
     F.items[i].bid=el.value; F.items[i].touched=false; refillPrices(); if(!F.pihakId&&el.value&&F.jenis!=='beli'){const h=hargaUntuk(F.jenis,el.value,'',F.tgl);F.items[i].hargaS=h?nf0.format(h):''} render(); const q=document.getElementById('ln-q-'+i); q&&q.focus()}
 });
 document.addEventListener('submit',e=>{
@@ -1330,13 +1333,12 @@ document.addEventListener('submit',e=>{
     else{p={id:uid(),nama,tipe,hp:document.getElementById('pf-hp').value.trim(),alamat:document.getElementById('pf-alamat').value.trim()};arr.push(p)}
     save(); if(view.forForm){F.pihakId=p.id;refillPrices()} back(); toast('Tersimpan'); return}
   if(id==='barangForm'){const nama=document.getElementById('bf-nama').value.trim(), sat=document.getElementById('bf-sat').value.trim(); if(!nama||!sat){document.getElementById('bf-err').textContent='Nama dan satuan wajib diisi.';return}
-    let b=view.id?byId(S.barang,view.id):null; const jenis=document.getElementById('bf-jenis').value;
+    let b=view.id?byId(S.barang,view.id):null; const jenis='hasil';
     if(b){b.nama=nama;b.satuan=sat;b.jenis=jenis} else {b={id:uid(),nama,satuan:sat,jenis};S.barang.push(b)}
     save(); if(view.forForm&&F&&F.items){F.items[view.line].bid=b.id;F.items[view.line].touched=false;refillPrices()} back(); toast('Tersimpan'); return}
   if(id==='usahaForm'){S.usaha={nama:document.getElementById('u-nama').value.trim(),alamat:document.getElementById('u-alamat').value.trim(),hp:document.getElementById('u-hp').value.trim()};save();back();toast('Tersimpan');return}
 });
 // prefill jenis barang baru dari form transaksi
-const _bf=V.barangForm; V.barangForm=()=>{let h=_bf(); if(!view.id&&view.jenis==='sarana')h=h.replace('<option value="hasil" selected>','<option value="hasil">').replace('<option value="sarana" >','<option value="sarana" selected>'); return h};
 
 load(); render();
 setTimeout(autoBackupCek,1200); setInterval(autoBackupCek,36e5);
