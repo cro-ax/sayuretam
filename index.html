@@ -223,6 +223,7 @@ nav.bot button[aria-current="page"] svg{background:var(--carbon-soft)}
 'use strict';
 /* ================= DATA ================= */
 const KEY='sayur_etam_tengkulak_v1';
+const APP_VER='14';
 let S, memOnly=false;
 const JENIS={
   beli:{label:'Beli dari petani / tengkulak',short:'Beli',pihak:'petani',items:true,prefix:'B',hf:'beli',bayarLabel:'Uang muka ke petani (opsional)',judul:'NOTA PEMBELIAN'},
@@ -830,7 +831,7 @@ function notaHarga(pid,d){
 }
 V.lain=()=>`${topbar('Lainnya')}<div class="list">
   ${[['ringkasan','Ringkasan','Untung, hutang-piutang, stok gudang'],['hargaPetani','Beri harga petani','Langkah 3: harga untuk barang yang sudah diambil, lihat untung'],['harga','Harga patokan harian','Harga jual ke pasar dan patokan harga petani per hari'],['barang','Barang & satuan','Daftar barang dagangan dan satuannya'],['rekap','Rekap & laporan','Harian, per petani, per pasar, daftar hutang'],['usaha','Data usaha','Nama, alamat, nomor di kepala nota'],['backup','Cadangan data','Simpan & pulihkan data, pindah HP']].map(([v,t,d])=>`<button class="item" data-act="go" data-v="${v}"><div class="grow"><div class="t">${t}</div><div class="small muted">${d}</div></div><span class="muted">›</span></button>`).join('')}
-  </div><p class="small muted">Semua data tersimpan di HP ini saja. Rutin buat cadangan supaya aman kalau HP rusak atau ganti HP.</p>`;
+  </div><p class="small muted"><b>Versi aplikasi: ${APP_VER}</b><br>Semua data tersimpan di HP ini saja. Rutin buat cadangan supaya aman kalau HP rusak atau ganti HP.</p>`;
 V.harga=()=>{
   const d=ui.hargaDate, h=S.harga[d]||{};
   const rows=S.barang.slice().sort((a,b)=>(a.jenis===b.jenis?0:a.jenis==='hasil'?-1:1)||a.nama.localeCompare(b.nama)).map(b=>{const x=h[b.id]||{};
@@ -1347,5 +1348,5 @@ if(typeof window!=='undefined')window.__tk={notaPNG,notaData,S:()=>S,eff,saldo,p
 })();
 </script>
 
-<script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}</script>
+<script>if('serviceWorker' in navigator){addEventListener('load',()=>{navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update();setInterval(()=>r.update(),36e5)}).catch(()=>{});let reloaded=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(reloaded)return;reloaded=true;location.reload()})})}</script>
 </body></html>
