@@ -272,7 +272,7 @@ nav.bot button[aria-current="page"] svg{background:var(--carbon-soft)}
 'use strict';
 /* ================= DATA ================= */
 const KEY='sayur_etam_tengkulak_v1';
-const APP_VER='16';
+const APP_VER='17';
 let S, memOnly=false;
 const JENIS={
   beli:{label:'Beli dari petani / tengkulak',short:'Beli',pihak:'petani',items:true,prefix:'B',hf:'beli',bayarLabel:'Uang muka ke petani (opsional)',judul:'NOTA PEMBELIAN'},
@@ -428,14 +428,14 @@ function saldoTeksPetani(s,owner){ // owner=true teks untuk aku, false untuk dik
 }
 function saldoTeksPasar(s,owner){
   if(Math.abs(s)<1)return 'Lunas';
-  if(owner) return s>0?'Pasar hutang '+rp(s):'Lebih bayar '+rp(-s);
-  return s>0?'Sisa hutang Anda: '+rp(s):'Kelebihan bayar Anda: '+rp(-s);
+  if(owner) return s>0?'Pembeli hutang '+rp(s):'Deposit '+rp(-s);
+  return s>0?'Sisa hutang Anda: '+rp(s):'Deposit Anda: '+rp(-s);
 }
 function saldoTeks(kind,s,owner){return kind==='petani'?saldoTeksPetani(s,owner):saldoTeksPasar(s,owner)}
 function saldoPill(kind,s){
   if(Math.abs(s)<1)return '<span class="pill ok">Lunas</span>';
   if(kind==='petani') return s>0?'<span class="pill debt">Aku hutang</span>':'<span class="pill">Petani hutang</span>';
-  return s>0?'<span class="pill">Pasar hutang</span>':'<span class="pill ok">Lebih bayar</span>';
+  return s>0?'<span class="pill">Hutang</span>':'<span class="pill ok">Deposit</span>';
 }
 function hargaUntuk(jenis,bid,pid,tgl){
   const f=JENIS[jenis].hf, h=S.harga[tgl]&&S.harga[tgl][bid];
@@ -502,7 +502,8 @@ function notaText(t){
     const bl=t.jenis==='beli'?'Dibayar':'Dibayar';
     s+=bl+' : '+rp(t.bayar)+'\n';
     const sisa=t.total-t.bayar;
-    if(Math.abs(sisa)>=1) s+=(t.jenis==='beli'?'Belum dibayar':'Masuk hutang')+' : '+rp(sisa)+'\n';
+    if(sisa>=1) s+=(t.jenis==='beli'?'Belum dibayar':'Masuk hutang')+' : '+rp(sisa)+'\n';
+    else if(sisa<=-1) s+='Lebih bayar (deposit) : '+rp(-sisa)+'\n';
   } else {
     s+='Jumlah : *'+rp(t.total)+'*\n';
   }
@@ -565,7 +566,7 @@ function posisiText(){
   let s=header()+'\n'+GARIS+'\n*POSISI HUTANG & PIUTANG*\nPer '+tglPanjang(today())+'\n'+GARIS+'\n';
   s+='*PIUTANG (uang kita di luar)*\n\nPetani hutang ke kita:\n'+ln(o.piutPetani)+'  Subtotal: '+rp(o.tPiutPetani)+'\n\nPedagang hutang ke kita:\n'+ln(o.piutPasar)+'  Subtotal: '+rp(o.tPiutPasar)+'\n\n*Total piutang: '+rp(o.tPiut)+'*\n'+GARIS+'\n';
   s+='*HUTANG (yang harus kita bayar)*\n\nKe petani (panen belum dibayar):\n'+ln(o.hutPetani)+'  Subtotal: '+rp(o.tHutPetani)+'\n';
-  if(o.hutPasar.length)s+='\nKe pedagang (kelebihan bayar):\n'+ln(o.hutPasar)+'  Subtotal: '+rp(o.tHutPasar)+'\n';
+  if(o.hutPasar.length)s+='\nDeposit pembeli (uang titipan):\n'+ln(o.hutPasar)+'  Subtotal: '+rp(o.tHutPasar)+'\n';
   s+='\n*Total hutang: '+rp(o.tHut)+'*\n'+GARIS+'\n*POSISI BERSIH: '+(o.bersih<0?'-':'')+rp(Math.abs(o.bersih))+'*\n'+(o.bersih>=0?'(piutang lebih besar dari hutang)':'(hutang lebih besar dari piutang)');
   if(o.pend)s+='\n\nCatatan: '+o.pend+' ambilan dari petani belum diberi harga, belum masuk hitungan hutang.';
   return s;
@@ -591,7 +592,7 @@ function posisiGroupText(kind){
     if(o.pend)s+='\n\nCatatan: '+o.pend+' ambilan belum diberi harga, belum masuk hitungan.';
   } else {
     s+='Pedagang hutang ke kita:\n'+ln(o.piutPasar)+'  *Total: '+rp(o.tPiutPasar)+'*\n';
-    if(o.hutPasar.length)s+='\nKelebihan bayar pedagang:\n'+ln(o.hutPasar)+'  *Total: '+rp(o.tHutPasar)+'*\n';
+    if(o.hutPasar.length)s+='\nDeposit pembeli:\n'+ln(o.hutPasar)+'  *Total: '+rp(o.tHutPasar)+'*\n';
     s+=GARIS+'\nBersih: '+rp(o.tPiutPasar-o.tHutPasar);
   }
   return s;
@@ -804,7 +805,9 @@ function paintSum(){
   if(T){
     if(pend){L.textContent='Harga menyusul';T.textContent=F.items.filter(i=>i.bid).map(i=>qf(parseNum(i.qtyS))+' '+((byId(S.barang,i.bid)||{}).satuan||'')).join(' + ')||'—';Sb.textContent=c.bayar?'Uang muka '+rp(c.bayar):'';Sb.className='small muted'}
     else{L.textContent=F.jenis==='kasbon'?'Nilai kasbon':J.items?'Total':'Jumlah';T.textContent=rp(c.total);
-      const sisa=c.total-c.bayar; Sb.textContent=J.items&&F.jenis!=='kasbon'&&c.total?(sisa>=1?(F.jenis==='beli'?'Belum dibayar ':'Masuk hutang ')+rp(sisa):'Lunas'):'';Sb.className='small '+(J.items&&sisa>=1?'c-debt':'c-ok')}
+      const sisa=c.total-c.bayar, dep=F.jenis==='jual'?Math.max(0,-c.before):0;
+      Sb.textContent=J.items&&F.jenis!=='kasbon'&&c.total?(sisa<=-1?'Lebih '+rp(-sisa)+' jadi deposit':sisa>=1?(dep>=1?'Dipotong deposit '+rp(Math.min(dep,sisa))+(sisa>dep?' · hutang '+rp(sisa-dep):''):(F.jenis==='beli'?'Belum dibayar ':'Masuk hutang ')+rp(sisa)):'Lunas'):'';
+      Sb.className='small '+(J.items&&sisa>=1&&sisa>dep?'c-debt':'c-ok')}
   }
   box.innerHTML=(pend?`<div class="small">Barang dicatat dulu, harga diberi besok lewat <b>Beri harga petani</b>.</div>`:'')+
    (F.pihakId?`<div class="sline"><span class="muted">Saldo</span><span>${esc(saldoTeks(c.kind,c.before,true))}</span><span class="muted">→</span><b>${esc(saldoTeks(c.kind,c.after,true))}</b></div>`:'');
@@ -1001,7 +1004,7 @@ V.rekap=()=>{
     ${blok('Pedagang hutang ke aku','pasar',o.piutPasar,o.tPiutPasar)}
     <h2 style="margin-top:6px">Hutang</h2>
     ${blok('Aku hutang ke petani','petani',o.hutPetani,o.tHutPetani)}
-    ${o.hutPasar.length?blok('Kelebihan bayar pedagang','pasar',o.hutPasar,o.tHutPasar):''}
+    ${o.hutPasar.length?blok('Deposit pembeli (uang titipan)','pasar',o.hutPasar,o.tHutPasar):''}
     <div class="nota"><pre>${esc(txt)}</pre></div>
     <div class="grid2"><a class="btn wa" href="${waUrl('',txt)}" target="_blank" rel="noopener">Kirim semua</a><button class="btn" data-act="copy" data-src="rekap">Salin teks</button></div>
     <div class="grid2"><a class="btn" href="${waUrl('',posisiGroupText('petani'))}" target="_blank" rel="noopener">Kirim petani saja</a><a class="btn" href="${waUrl('',posisiGroupText('pasar'))}" target="_blank" rel="noopener">Kirim pedagang saja</a></div>
@@ -1062,7 +1065,8 @@ function notaData(t){
     if(pend){ if(t.bayar)d.totals.push(['Uang muka',rp(t.bayar),false]); d.pesan='Harga diberikan besok setelah barang laku di pasar.'; }
     else{ const sisa=t.total-(t.bayar||0); d.totals.push(['Total',rp(t.total),true]);
       if(t.jenis!=='kasbon'||t.bayar)d.totals.push(['Dibayar',rp(t.bayar||0),false]);
-      if(Math.abs(sisa)>=1)d.totals.push([t.jenis==='beli'?'Belum dibayar':'Masuk hutang',rp(sisa),false,true]); }
+      if(sisa>=1)d.totals.push([t.jenis==='beli'?'Belum dibayar':'Masuk hutang',rp(sisa),false,true]);
+      else if(sisa<=-1)d.totals.push(['Lebih bayar (deposit)',rp(-sisa),false,false]); }
   } else { d.lines.push({nama:J.label,detail:'',amt:rp(t.total)}); d.totals.push(['Jumlah',rp(t.total),true]); }
   if(t.riwayat&&t.riwayat.length)d.notes.push('Timbang ulang: '+t.riwayat.map(r=>r.txt).join(', '));
   if(t.catatan&&!(t.jenis==='kasbon'&&t.uang))d.notes.push('Catatan: '+t.catatan);
@@ -1156,7 +1160,6 @@ function saveTx(){
       const b=byId(S.barang,it.bid); items.push({bid:b.id,nama:b.nama,satuan:b.satuan,qty:q,harga:h}); }
     if(!items.length&&!parseNum(F.uangS))return err(F.jenis==='kasbon'?'Isi nilai kasbon.':'Isi minimal satu barang.');
     if(c.bayar<0)return err('Jumlah bayar tidak boleh minus.');
-    if(c.bayar>c.total&&!items.some(i=>!i.harga))return err('Jumlah bayar lebih besar dari total. Sisa lebihnya catat sebagai pembayaran terpisah.');
   } else if(c.total<=0)return err('Isi jumlah uang.');
   const old=F.id?byId(S.tx,F.id):null;
   const tx={id:old?old.id:uid(),t:old?old.t:Date.now(),tgl:F.tgl,jenis:F.jenis,pihakId:F.pihakId,items,uang:J.items?Math.round(parseNum(F.uangS)):0,total:c.total,bayar:c.bayar,catatan:F.catatan.trim()};
