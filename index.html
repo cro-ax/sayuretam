@@ -272,7 +272,7 @@ nav.bot button[aria-current="page"] svg{background:var(--carbon-soft)}
 'use strict';
 /* ================= DATA ================= */
 const KEY='sayur_etam_tengkulak_v1';
-const APP_VER='15';
+const APP_VER='16';
 let S, memOnly=false;
 const JENIS={
   beli:{label:'Beli dari petani / tengkulak',short:'Beli',pihak:'petani',items:true,prefix:'B',hf:'beli',bayarLabel:'Uang muka ke petani (opsional)',judul:'NOTA PEMBELIAN'},
@@ -339,7 +339,7 @@ function noBaru(s,tx){
   let n=1; s.tx.forEach(t=>{if(t.no&&t.no.startsWith(pre)){const k=parseInt(t.no.slice(pre.length),10);if(k>=n)n=k+1}});
   return pre+pad(n);
 }
-function fixMeta(){(S.barang||[]).forEach(b=>{b.jenis='hasil'});S.meta=Object.assign({autoFile:true,lastFile:0,snap:''},S.meta||{})}
+function fixMeta(){if(S.meta&&S.meta.waDirect===undefined)S.meta.waDirect=false;(S.barang||[]).forEach(b=>{b.jenis='hasil'});S.meta=Object.assign({autoFile:true,lastFile:0,snap:''},S.meta||{})}
 function load(){
   try{const r=localStorage.getItem(KEY); if(r){S=Object.assign(blank(),JSON.parse(r)); fixMeta(); bump(); return;}}catch(e){memOnly=true}
   S=contoh(); fixMeta(); bump();
@@ -405,7 +405,7 @@ function parseNum(v){
 }
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function waNum(hp){let d=String(hp||'').replace(/\D/g,''); if(d.startsWith('0'))d='62'+d.slice(1); else if(d.startsWith('8'))d='62'+d; return d}
-function waUrl(hp,text){return 'https://wa.me/'+waNum(hp)+'?text='+encodeURIComponent(text)}
+function waUrl(hp,text){const n=(S&&S.meta&&S.meta.waDirect)?waNum(hp):'';return n?'https://wa.me/'+n+'?text='+encodeURIComponent(text):'https://api.whatsapp.com/send?text='+encodeURIComponent(text)}
 
 /* ================= QUERIES ================= */
 const byId=(arr,id)=>arr.find(x=>x.id===id);
@@ -680,7 +680,7 @@ V.ringkasan=()=>{
    <div class="pp"><div><span class="small muted">Petani/tengkulak hutang ke aku</span><b>${rp(o.tPiutPetani)}</b></div><div><span class="small muted">Pembeli hutang ke aku</span><b>${rp(o.tPiutPasar)}</b></div>
    <div><span class="small muted">Aku hutang</span><b class="c-debt">${rp(o.tHut)}</b></div><div><span class="small muted">Posisi bersih</span><b class="${o.bersih<0?'c-debt':'c-ok'}">${o.bersih<0?'-':''}${rp(Math.abs(o.bersih))}</b></div></div></button>`})()}</div>
   ${hasil.length?`<div class="sec"><h2>Stok di gudang</h2><div class="list">${hasil.map(b=>{const q=stok(b.id);return `<div class="item" style="cursor:default"><div class="grow t">${esc(b.nama)}</div><div class="amt ${q<0?'c-debt':''}">${qf(q)} ${esc(b.satuan)}</div></div>`}).join('')}</div><span class="small muted">Stok = dibeli − dijual − dihutangkan. Sisa yang tidak laku atau susut kelihatan di sini.</span></div>`:''}
-  <div class="sec"><a class="btn wa block" href="${waUrl(S.usaha.hp,posisiText())}" target="_blank" rel="noopener">Kirim total hutang &amp; piutang</a><button class="btn block" data-act="rekapHariIni">Rekap usaha hari ini</button><button class="btn block" data-act="go" data-v="rekap">Semua laporan</button></div>`;
+  <div class="sec"><a class="btn wa block" href="${waUrl('',posisiText())}" target="_blank" rel="noopener">Kirim total hutang &amp; piutang</a><button class="btn block" data-act="rekapHariIni">Rekap usaha hari ini</button><button class="btn block" data-act="go" data-v="rekap">Semua laporan</button></div>`;
 };
 V.txlist=()=>{
   const fs=[['semua','Semua'],['beli','Beli'],['jual','Jual'],['kasbon','Hutangkan'],['bayar','Pembayaran']];
@@ -958,6 +958,9 @@ V.usaha=()=>topbar('Data usaha')+`<form class="stack" id="usahaForm">
   <label class="f"><span class="lbl">Alamat</span><input id="u-alamat" value="${esc(S.usaha.alamat)}"></label>
   <label class="f"><span class="lbl">Nomor HP / WA</span><input id="u-hp" inputmode="tel" value="${esc(S.usaha.hp)}"></label>
   <span class="small muted">Tampil di bagian atas setiap nota dan rekap.</span>
+  <div class="card stack" style="gap:8px"><h3>Kirim WhatsApp</h3>
+   <label class="row" style="gap:12px;cursor:pointer"><input type="radio" name="wamode" id="wa-pick" ${S.meta.waDirect?'':'checked'} style="width:22px;height:22px;min-height:0;flex:none"><span><b>Pilih kontak dulu</b><br><span class="small muted">WhatsApp membuka daftar chat, kamu pilih penerimanya</span></span></label>
+   <label class="row" style="gap:12px;cursor:pointer"><input type="radio" name="wamode" id="wa-direct" ${S.meta.waDirect?'checked':''} style="width:22px;height:22px;min-height:0;flex:none"><span><b>Langsung ke nomor tersimpan</b><br><span class="small muted">Kalau nomor WA orangnya sudah diisi di tab Orang</span></span></label></div>
   <button class="btn pri block" type="submit">Simpan</button></form>`;
 V.rekap=()=>{
   const R=ui.rekap, tabs=[['hutang','Hutang & piutang'],['usaha','Usaha'],['margin','Untung'],['pihak','Per orang']];
@@ -968,7 +971,7 @@ V.rekap=()=>{
     const r=totalsRange(R.a,R.b), txt=rekapHarianText(R.a,R.b);
     body=range+`<div class="grid2"><div class="stat"><span class="lbl">Pembelian</span><b>${rp(r.beli)}</b></div><div class="stat"><span class="lbl">Penjualan</span><b>${rp(r.jual)}</b></div><div class="stat"><span class="lbl">Dihutangkan</span><b>${rp(r.kasbon)}</b></div><div class="stat ${r.jual-r.beli<0?'debt':'ok'}"><span class="lbl">Selisih jual−beli</span><b>${rp(r.jual-r.beli)}</b></div></div>
     <div class="nota"><pre>${esc(txt)}</pre></div>
-    <div class="grid2"><a class="btn wa" href="${waUrl(S.usaha.hp,txt)}" target="_blank" rel="noopener">Kirim WA</a><button class="btn" data-act="copy" data-src="rekap">Salin teks</button></div>`;
+    <div class="grid2"><a class="btn wa" href="${waUrl('',txt)}" target="_blank" rel="noopener">Kirim WA</a><button class="btn" data-act="copy" data-src="rekap">Salin teks</button></div>`;
     ui._copy=txt;
   } else if(R.tab==='margin'){
     const m=marginRange(R.a,R.b);
@@ -978,18 +981,18 @@ V.rekap=()=>{
     body=range+`<div class="grid2"><div class="stat"><span class="lbl">Penjualan</span><b>${rp(m.tot.jualRp)}</b></div><div class="stat ${m.tot.margin<0?'debt':'ok'}"><span class="lbl">Untung</span><b>${rp(m.tot.margin)}</b></div></div>
     ${m.rows.length?`<div class="card scroll" style="padding:6px 10px"><table class="tbl"><thead><tr><th>Barang</th><th class="r">Ambil</th><th class="r">Laku</th><th class="r">Modal/sat</th><th class="r">Jual/sat</th><th class="r">Untung</th></tr></thead><tbody>${m.rows.map(o=>`<tr><td>${esc(o.nama)}<div class="small muted">${esc(o.satuan)}${o.pendQ?' · <span class="c-debt">'+qf(o.pendQ)+' blm dihargai</span>':''}</div></td><td class="r">${qf(o.ambilQ)}</td><td class="r">${qf(o.jualQ)}</td><td class="r">${o.modal?nf0.format(o.modal):'–'}</td><td class="r">${o.avgJual?nf0.format(o.avgJual):'–'}</td><td class="r ${o.margin<0?'c-debt':''}">${nf0.format(o.margin)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Tidak ada data di periode ini.</div>'}
     <span class="small muted">Untung = hasil jual − (jumlah laku × modal rata-rata harga petani). Barang yang belum dihargai memakai patokan harga petani terakhir sampai diberi harga.</span>
-    <div class="grid2"><a class="btn wa" href="${waUrl(S.usaha.hp,txt)}" target="_blank" rel="noopener">Kirim WA</a><button class="btn" data-act="copy" data-src="rekap">Salin teks</button></div>`;
+    <div class="grid2"><a class="btn wa" href="${waUrl('',txt)}" target="_blank" rel="noopener">Kirim WA</a><button class="btn" data-act="copy" data-src="rekap">Salin teks</button></div>`;
   } else if(R.tab==='pihak'){
     const arr=(R.kind==='petani'?S.petani:S.pasar).slice().sort((a,b)=>a.nama.localeCompare(b.nama));
     if(!arr.find(p=>p.id===R.pid))R.pid=arr[0]?arr[0].id:'';
     const p=byId(arr,R.pid), txt=p?rekapPihakText(R.kind,p.id,R.a,R.b):'';
     body=`<div class="chips"><button class="chip" data-act="rkind" data-v="petani" aria-pressed="${R.kind==='petani'}">Petani</button><button class="chip" data-act="rkind" data-v="pasar" aria-pressed="${R.kind==='pasar'}">Pasar</button></div>
     <select id="r-pid" data-f="rpid">${arr.map(x=>`<option value="${x.id}" ${x.id===R.pid?'selected':''}>${esc(x.nama)}</option>`).join('')}</select>`+range+
-    (p?`<div class="nota"><pre>${esc(txt)}</pre></div><div class="grid2"><a class="btn wa" href="${waUrl(p.hp,txt)}" target="_blank" rel="noopener">Kirim ke ${esc(p.nama.split(' (')[0])}</a><button class="btn" data-act="copy" data-src="rekap">Salin teks</button></div>${p.hp?'':'<span class="small muted">Nomor WA belum diisi, WhatsApp akan meminta pilih kontak.</span>'}`:'<div class="empty">Belum ada data.</div>');
+    (p?`<div class="nota"><pre>${esc(txt)}</pre></div><div class="grid2"><a class="btn wa" href="${waUrl(p.hp,txt)}" target="_blank" rel="noopener">Kirim WA</a><button class="btn" data-act="copy" data-src="rekap">Salin teks</button></div>`:'<div class="empty">Belum ada data.</div>');
     ui._copy=txt;
   } else {
     const o=posisi(), txt=posisiText(); ui._copy=txt;
-    const row=(kind,x)=>`<div class="item orang" style="cursor:default"><div class="row between" style="width:100%"><div class="grow t">${esc(x.p.nama)}</div><div class="amt">${rp(Math.abs(x.s))}</div></div><div class="row" style="width:100%"><a class="btn sm wa" style="flex:1" href="${waUrl(x.p.hp,saldoSingkatText(kind,x.p.id))}" target="_blank" rel="noopener">Kirim saldo</a><a class="btn sm" style="flex:1" href="${waUrl(x.p.hp,rekapPihakText(kind,x.p.id,addDays(today(),-30),today()))}" target="_blank" rel="noopener">Kirim rincian 30 hari</a></div>${x.p.hp?'':'<span class="small muted">Nomor WA belum diisi, nanti pilih kontak di WhatsApp.</span>'}</div>`;
+    const row=(kind,x)=>`<div class="item orang" style="cursor:default"><div class="row between" style="width:100%"><div class="grow t">${esc(x.p.nama)}</div><div class="amt">${rp(Math.abs(x.s))}</div></div><div class="row" style="width:100%"><a class="btn sm wa" style="flex:1" href="${waUrl(x.p.hp,saldoSingkatText(kind,x.p.id))}" target="_blank" rel="noopener">Kirim saldo</a><a class="btn sm" style="flex:1" href="${waUrl(x.p.hp,rekapPihakText(kind,x.p.id,addDays(today(),-30),today()))}" target="_blank" rel="noopener">Kirim rincian 30 hari</a></div></div>`;
     const blok=(judul,kind,arr,tot)=>`<div class="row between"><h3>${judul}</h3><b class="num" style="font-weight:800">${rp(tot)}</b></div><div class="list">${arr.length?arr.map(x=>row(kind,x)).join(''):'<div class="empty small">Tidak ada.</div>'}</div>`;
     body=`<div class="grid2"><div class="stat"><span class="lbl">Total piutang</span><b>${rp(o.tPiut)}</b></div><div class="stat debt"><span class="lbl">Total hutang</span><b>${rp(o.tHut)}</b></div></div>
     <div class="hero"><span class="lbl">Posisi bersih</span><span class="v ${o.bersih<0?'c-debt':'c-ok'}">${o.bersih<0?'-':''}${rp(Math.abs(o.bersih))}</span><span class="small muted">Piutang dikurangi hutang${o.pend?'. '+o.pend+' ambilan belum dihargai belum termasuk':''}.</span></div>
@@ -1000,8 +1003,8 @@ V.rekap=()=>{
     ${blok('Aku hutang ke petani','petani',o.hutPetani,o.tHutPetani)}
     ${o.hutPasar.length?blok('Kelebihan bayar pedagang','pasar',o.hutPasar,o.tHutPasar):''}
     <div class="nota"><pre>${esc(txt)}</pre></div>
-    <div class="grid2"><a class="btn wa" href="${waUrl(S.usaha.hp,txt)}" target="_blank" rel="noopener">Kirim semua</a><button class="btn" data-act="copy" data-src="rekap">Salin teks</button></div>
-    <div class="grid2"><a class="btn" href="${waUrl(S.usaha.hp,posisiGroupText('petani'))}" target="_blank" rel="noopener">Kirim petani saja</a><a class="btn" href="${waUrl(S.usaha.hp,posisiGroupText('pasar'))}" target="_blank" rel="noopener">Kirim pedagang saja</a></div>
+    <div class="grid2"><a class="btn wa" href="${waUrl('',txt)}" target="_blank" rel="noopener">Kirim semua</a><button class="btn" data-act="copy" data-src="rekap">Salin teks</button></div>
+    <div class="grid2"><a class="btn" href="${waUrl('',posisiGroupText('petani'))}" target="_blank" rel="noopener">Kirim petani saja</a><a class="btn" href="${waUrl('',posisiGroupText('pasar'))}" target="_blank" rel="noopener">Kirim pedagang saja</a></div>
     <span class="small muted"><b>Kirim saldo</b>: pesan singkat sisa hutang/piutang ke orang itu. <b>Kirim rincian</b>: daftar transaksi 30 hari terakhir beserta saldonya.</span>`;
   }
   return topbar('Rekap & laporan')+`<div class="stack"><div class="chips">${tabs.map(([k,l])=>`<button class="chip" data-act="rtab" data-v="${k}" aria-pressed="${R.tab===k}">${l}</button>`).join('')}</div>${body}</div>`;
@@ -1044,7 +1047,7 @@ function txSheet(id){
   <div class="nota"><pre>${esc(txt)}</pre></div>
   <button class="btn pri block" id="imgBtn" data-act="kirimGambar" data-id="${t.id}">${ICON_IMG} Kirim gambar nota</button>
   <div id="imgPrev" class="stack" style="gap:6px"></div>
-  <a class="btn wa block" href="${waUrl(p&&p.hp,txt)}" target="_blank" rel="noopener">Kirim teks ke WhatsApp${p&&p.hp?'':' (pilih kontak)'}</a>
+  <a class="btn wa block" href="${waUrl(p&&p.hp,txt)}" target="_blank" rel="noopener">Kirim teks ke WhatsApp</a>
   <div class="grid2"><button class="btn" data-act="copy" data-src="nota">Salin teks</button><button class="btn" data-act="editTx" data-id="${t.id}">${t.jenis==='beli'?'Ubah berat / harga':'Ubah'}</button></div>
   <div id="delTxBox"><button class="btn danger block" data-act="askDelTx" data-id="${t.id}">Hapus transaksi</button></div>`);
 }
@@ -1444,7 +1447,7 @@ document.addEventListener('submit',e=>{
     let b=view.id?byId(S.barang,view.id):null; const jenis='hasil';
     if(b){b.nama=nama;b.satuan=sat;b.jenis=jenis} else {b={id:uid(),nama,satuan:sat,jenis};S.barang.push(b)}
     save(); if(view.forForm&&F&&F.items){F.items[view.line].bid=b.id;F.items[view.line].touched=false;refillPrices()} back(); toast('Tersimpan'); return}
-  if(id==='usahaForm'){S.usaha={nama:document.getElementById('u-nama').value.trim(),alamat:document.getElementById('u-alamat').value.trim(),hp:document.getElementById('u-hp').value.trim()};save();back();toast('Tersimpan');return}
+  if(id==='usahaForm'){S.meta.waDirect=!!(document.getElementById('wa-direct')||{}).checked; S.usaha={nama:document.getElementById('u-nama').value.trim(),alamat:document.getElementById('u-alamat').value.trim(),hp:document.getElementById('u-hp').value.trim()};save();back();toast('Tersimpan');return}
 });
 // prefill jenis barang baru dari form transaksi
 
