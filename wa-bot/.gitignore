@@ -1,0 +1,6 @@
+node_modules/
+auth_info/
+sesi_wa_sayuretam/
+data/
+.env
+*.log
